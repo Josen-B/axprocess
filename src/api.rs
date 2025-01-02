@@ -8,7 +8,7 @@ use alloc::{
     vec,
     vec::Vec,
 };
-use axconfig::{MAX_USER_HEAP_SIZE, MAX_USER_STACK_SIZE, USER_HEAP_BASE, USER_STACK_TOP};
+
 use axerrno::{AxError, AxResult};
 use axhal::mem::VirtAddr;
 use axhal::paging::MappingFlags;
@@ -32,6 +32,11 @@ use crate::link::real_path;
 use crate::process::{Process, PID2PC, TID2TASK};
 
 use crate::signal::{send_signal_to_process, send_signal_to_thread};
+
+const USER_HEAP_BASE: usize = 0x3fa00000;
+const USER_STACK_TOP: usize = 0x3fe00000;
+const MAX_USER_HEAP_SIZE: usize = 0x400000;
+const MAX_USER_STACK_SIZE: usize = 0x200000;
 
 /// 初始化内核调度进程
 pub fn init_kernel_process() {
@@ -175,14 +180,12 @@ pub fn load_app(
         args = [vec![String::from("busybox"), String::from("sh")], args].concat();
         return load_app("busybox".to_string(), args, envs, memory_set);
     }
-    let elf_data = if let Ok(ans) = axfs::api::read(name.as_str()) {
-        ans
-    } else {
-        // exit(0)
-        info!("App not found: {}", name);
-        return Err(AxError::NotFound);
+    let file_start = 0xffff_0000_b900_0000 as *const u8;
+    let file_size = 0x122710;
+    let file_data = unsafe {
+        core::slice::from_raw_parts(file_start, file_size)
     };
-    let elf = xmas_elf::ElfFile::new(&elf_data).expect("Error parsing app ELF file.");
+    let elf = xmas_elf::ElfFile::new(&file_data).expect("Error parsing app ELF file.");
     if let Some(interp) = elf
         .program_iter()
         .find(|ph| ph.get_type() == Ok(xmas_elf::program::Type::Interp))
