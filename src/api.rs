@@ -33,6 +33,9 @@ use crate::process::{Process, PID2PC, TID2TASK};
 
 use crate::signal::{send_signal_to_process, send_signal_to_thread};
 
+
+const FILE_START : usize = 0xffff_0000_b900_0000;
+const FILE_SIZE: usize = 0x100_0000;
 const USER_HEAP_BASE: usize = 0x3fa00000;
 const USER_STACK_TOP: usize = 0x3fe00000;
 const MAX_USER_HEAP_SIZE: usize = 0x400000;
@@ -180,10 +183,8 @@ pub fn load_app(
         args = [vec![String::from("busybox"), String::from("sh")], args].concat();
         return load_app("busybox".to_string(), args, envs, memory_set);
     }
-    let file_start = 0xffff_0000_b900_0000 as *const u8;
-    let file_size = 0x122710;
     let file_data = unsafe {
-        core::slice::from_raw_parts(file_start, file_size)
+        core::slice::from_raw_parts(FILE_START as *const u8, FILE_SIZE)
     };
     let elf = xmas_elf::ElfFile::new(&file_data).expect("Error parsing app ELF file.");
     if let Some(interp) = elf
